@@ -6,6 +6,11 @@ from bs4 import BeautifulSoup
 import urllib
 from Team import Team
 
+# TODO: Allow user to differentiate between creating a database and updating an existing one
+# TODO: Iterate over mined data to calculate each teams' defensive rating
+# TODO: Iterate over mined data and use defensive ratings to calculate each teams adjusted points per possesion
+# TODO: Remove dead code (a LOT was found to be unnecessary as I got to understand BeautifulSoup more)
+
 def extractGameLink(item):
     startIndex = item.find('"')
     return 'https://www.sports-reference.com' + str(item[startIndex + 1:len(item) - 11])
@@ -21,8 +26,6 @@ def extractTeamName(item):
 def extractTableHeaders(headerList):
     team_one = str(headerList[4])
     team_two = str(headerList[6])
-    print('Extract Table Headers - ' + str(team_one))
-    print('Extract Table Headers - ' + str(team_two))
     team_one = extractTeamName(team_one[:len(team_one) - 10])
     team_two = extractTeamName(team_two[:len(team_two) - 10])
     return team_one.lower(), team_two.lower()
@@ -45,7 +48,6 @@ def getDivisionOneGames(totalGames):
 
 def getGameIndexPage(month, day, year):
     gameUrl = 'https://www.sports-reference.com/cbb/boxscores/index.cgi?month=' + str(month) + '&day=' + str(day) + '&year=' + str(year)
-    print(gameUrl)
     with urllib.request.urlopen(gameUrl) as siteResponse:
         gamePage = siteResponse.read()
     page = BeautifulSoup(gamePage, 'html.parser')
@@ -79,8 +81,6 @@ for i in range(0, 23, 1):
         # Find box score data for each team from game
         team_a_table = gameSoup.select('#div_box-score-basic-' + team_a)
         team_b_table = gameSoup.select('#div_box-score-basic-' + team_b)
-        print(team_a)
-        print(team_b)
         team_a_stats = team_a_table[0].find('tfoot')
         team_b_stats = team_b_table[0].find('tfoot')
 
