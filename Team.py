@@ -7,6 +7,7 @@ class Team:
         self.defRating = 0
         self.games = 0
         self.gamedata = []
+        self.adjPPP = 0
 
     def addGame(self, points, poss, oppName, oppPointsPerPos):
         self.possessions += poss
@@ -17,9 +18,15 @@ class Team:
 
     def PointsPerPos(self):
         return self.points / self.possessions
-    
+
     def updateDefRating(self, pointsHeldTo, oppPointsPerPos):
         self.defRating += (float(oppPointsPerPos) - float(pointsHeldTo))
 
     def defensiveRating(self):
         return self.defRating / self.games
+
+    def updateOffensiveRating(self, points_per_pos, oppDef):
+        self.adjPPP += points_per_pos + oppDef
+
+    def OffensiveRating(self):
+        return float(self.adjPPP() / self.games)

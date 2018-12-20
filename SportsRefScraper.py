@@ -53,52 +53,84 @@ def getGameIndexPage(month, day, year):
     page = BeautifulSoup(gamePage, 'html.parser')
     return page
 
+def writeTeamData(teams):
+    with open('BPI2018-19', 'w') as outfile:
+        csvwriter = csv.writer(outfile)
+        for team in teams:
+            csvwriter.write(str(teams[team].name) + ',')
+            csvwriter.write(str(teams[team].games) + ',')
+            csvwriter.write(str(teams[team].points) + ',')
+            csvwriter.write(str(teams[team].possessions) + ',' + '\n')
+
+def writeGameData(teams):
+    with open('gamefile', 'w') as outfile:
+        csvwriter = csv.writer(outfile)
+        for team in teams:
+            csvwriter.write(team + ',\n Opponent, PointsPerPos Scored, PointsPerPos Allowed, \n')
+            for game in teams[team].gamedata:
+                csvwriter.write(str(game['opponent_name']) + ',' + str(game['points_per_pos_scored']) + ',' +
+                              str(game['opponent_points_per_pos']) + '\n')
+            csvwriter.write('\n')
+
+def getBoxScoreData(soup, team_name):
+    team_table = soup.select('#div_box-score-basic-' + team_name)
+    return team_table[0].find('tfoot')
+
+def createDatabase():
+    for i in range(0, 23, 1):
+        pageSoup = getGameIndexPage(11, 6, 2018)
+        totalGames = pageSoup.find_all('a')
+        totalGames = totalGames[37:len(totalGames) - 124]
+        teams = {}
+        gamesToScrape = getDivisionOneGames(totalGames)
+        for j in range(1, len(gamesToScrape), 3):
+            with urllib.request.urlopen(gamesToScrape[j]) as siteResponse:
+                singleGamePage = siteResponse.read()
+            gameSoup = BeautifulSoup(singleGamePage, 'html.parser')
+            # Find names of teams
+            team_a = gamesToScrape[j - 1]
+            team_b = gamesToScrape[j + 1]
+
+            # Instantiate Teams, if not already instantiated
+            if team_a not in teams:
+                teams[team_a] = Team(team_a)
+            if team_b not in teams:
+                teams[team_b] = Team(team_b)
+
+            # Find box score data for each team from game
+            team_a_stats = getBoxScoreData(gameSoup, team_a)
+            team_b_stats = getBoxScoreData(gameSoup, team_b)
+            teams[team_a].addGame(float(team_a_stats.find(attrs={'data-stat': 'pts'}).string),
+                                  calcPossessionsFromTable(team_a_stats, team_a), team_b,
+                                  float(
+                                      team_b_stats.find(attrs={'data-stat': 'pts'}).string) / calcPossessionsFromTable(
+                                      team_b_stats, team_b))
+            time.sleep(5)
+
+        time.sleep(60)
+    return teams
 
 
-for i in range(0, 23, 1):
-    pageSoup = getGameIndexPage(11, 6 + i, 2018)
-    totalGames = pageSoup.find_all('a')
-    totalGames = totalGames[37:len(totalGames) - 124]
-    teams = {}
-    gamesToScrape = getDivisionOneGames(totalGames)
 
-    for j in range(1, len(gamesToScrape), 3):
-        with urllib.request.urlopen(gamesToScrape[j]) as siteResponse:
-            singleGamePage = siteResponse.read()
-        gameSoup = BeautifulSoup(singleGamePage, 'html.parser')
+validInput = False
+while not validInput:
+    print('Would you like to create a new database or update an existing one? Type \'create\' or \'update\':')
+    user_input = input()
+    validInput = user_input == 'create' or user_input == 'update'
 
-        # Find names of teams
-        team_table_headers = gameSoup.find_all('h2')
-        team_a = gamesToScrape[j - 1]
-        team_b = gamesToScrape[j + 1]
+teams = {}
+if user_input == 'create':
+    teams = createDatabase()
 
-        # Instantiate Teams, if not already instantiated
-        if team_a not in teams:
-            teams[team_a] = Team(team_a)
-        if team_b not in teams:
-            teams[team_b] = Team(team_b)
+for team in teams:
+    current_team = teams[team]
+    for game in current_team.gamedata:
+        current_team.updateDefRating(game['opponent_points_per_pos'], teams[game['opponent_name']].PointsPerPos())
 
-        # Find box score data for each team from game
-        team_a_table = gameSoup.select('#div_box-score-basic-' + team_a)
-        team_b_table = gameSoup.select('#div_box-score-basic-' + team_b)
-        team_a_stats = team_a_table[0].find('tfoot')
-        team_b_stats = team_b_table[0].find('tfoot')
 
-        teams[team_a].addGame(float(team_a_stats.find(attrs={'data-stat': 'pts'}).string),
-                               calcPossessionsFromTable(team_a_stats, team_a), team_b,
-                          float(team_b_stats.find(attrs={'data-stat': 'pts'}).string) / calcPossessionsFromTable(team_b_stats, team_b))
-        time.sleep(random.uniform(5, 10))
+for team in teams:
+    current_team = teams[team]
+    for game in current_team.gamedata:
+        current_team.updateOffensiveRating(game['points_per_pos_scored'], teams[game['opponent_name']].defensiveRating())
 
-with open ('BPI2018-19', 'w') as outfile:
-    for team in teams:
-        outfile.write(str(teams[team].name) + ',')
-        outfile.write(str(teams[team].PointsPerPos()) + ',' + '\n')
-
-with open ('gamefile', 'w') as outfile:
-    for team in teams:
-        outfile.write(team + ',\n Opponent, PointsPerPos Scored, PointsPerPos Allowed, \n')
-        for game in teams[team].gamedata:
-            outfile.write(str(game['opponent_name']) + ',' + str(game['points_per_pos_scored']) + ',' +
-                          str(game['opponent_points_per_pos']) + '\n')
-        outfile.write('\n')
 
