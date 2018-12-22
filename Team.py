@@ -10,23 +10,23 @@ class Team:
         self.adjPPP = 0
 
     def addGame(self, points, poss, oppName, oppPointsPerPos):
-        self.possessions += poss
-        self.points += points
+        self.possessions += float(poss)
+        self.points += float(points)
         self.games += 1
         self.gamedata.append({'points_per_pos_scored': float(points / poss), 'opponent_name': oppName,
-                              'opponent_points_per_pos': oppPointsPerPos})
+                              'opponent_points_per_pos': float(oppPointsPerPos)})
 
     def PointsPerPos(self):
-        return self.points / self.possessions
+        return float(self.points) / float(self.possessions)
 
     def updateDefRating(self, pointsHeldTo, oppPointsPerPos):
         self.defRating += (float(oppPointsPerPos) - float(pointsHeldTo))
 
     def defensiveRating(self):
-        return self.defRating / self.games
+        return float(self.defRating) / float(self.games)
 
     def updateOffensiveRating(self, points_per_pos, oppDef):
-        self.adjPPP += points_per_pos + oppDef
+        self.adjPPP += float(points_per_pos) + float(oppDef)
 
     def OffensiveRating(self):
-        return float(self.adjPPP() / self.games)
+        return float(self.adjPPP) / float(self.games)

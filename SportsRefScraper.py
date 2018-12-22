@@ -16,11 +16,9 @@ def extractGameLink(item):
     return 'https://www.sports-reference.com' + str(item[startIndex + 1:len(item) - 11])
 
 def extractTeamName(item):
-    print('ExtractTeamName:' + str(item))
     startIndex = item.find('schools/')
     endIndex = item.find('/2019')
     name = item[startIndex + 8: endIndex]
-    print(name)
     return name.lower()
 
 def extractTableHeaders(headerList):
@@ -44,49 +42,68 @@ def getDivisionOneGames(totalGames):
             games.append(extractTeamName(str(totalGames[i])))
             games.append(extractGameLink(str(totalGames[i + 1])))
             games.append(extractTeamName(str(totalGames[i + 2])))
+
+    print(games)
     return games
 
 def getGameIndexPage(month, day, year):
     gameUrl = 'https://www.sports-reference.com/cbb/boxscores/index.cgi?month=' + str(month) + '&day=' + str(day) + '&year=' + str(year)
-    with urllib.request.urlopen(gameUrl) as siteResponse:
-        gamePage = siteResponse.read()
-    page = BeautifulSoup(gamePage, 'html.parser')
+    urlRetrieved = False
+    while not urlRetrieved:
+        try:
+            with urllib.request.urlopen(gameUrl) as siteResponse:
+                gamePage = siteResponse.read()
+            page = BeautifulSoup(gamePage, 'html.parser')
+            urlRetrieved = True
+        except urllib.error.URLError:
+            time.sleep(300)
     return page
 
 def writeTeamData(teams):
-    with open('BPI2018-19', 'w') as outfile:
-        csvwriter = csv.writer(outfile)
+    with open('BPI2018-19.csv', 'w') as outfile:
         for team in teams:
-            csvwriter.write(str(teams[team].name) + ',')
-            csvwriter.write(str(teams[team].games) + ',')
-            csvwriter.write(str(teams[team].points) + ',')
-            csvwriter.write(str(teams[team].possessions) + ',' + '\n')
+            outfile.write(str(teams[team].name) + ',')
+            outfile.write(str(teams[team].games) + ',')
+            outfile.write(str(teams[team].points) + ',')
+            outfile.write(str(teams[team].possessions) + ',')
+            outfile.write(str(teams[team].OffensiveRating()) + ',')
+            outfile.write(str(teams[team].defensiveRating()) + ',' + '\n')
 
 def writeGameData(teams):
-    with open('gamefile', 'w') as outfile:
-        csvwriter = csv.writer(outfile)
+    with open('gamefile.csv', 'w') as outfile:
         for team in teams:
-            csvwriter.write(team + ',\n Opponent, PointsPerPos Scored, PointsPerPos Allowed, \n')
+            outfile.write(team + ',\n Opponent, PointsPerPos Scored, PointsPerPos Allowed, \n')
             for game in teams[team].gamedata:
-                csvwriter.write(str(game['opponent_name']) + ',' + str(game['points_per_pos_scored']) + ',' +
+                outfile.write(str(game['opponent_name']) + ',' + str(game['points_per_pos_scored']) + ',' +
                               str(game['opponent_points_per_pos']) + '\n')
-            csvwriter.write('\n')
+            outfile.write('\n')
 
 def getBoxScoreData(soup, team_name):
     team_table = soup.select('#div_box-score-basic-' + team_name)
     return team_table[0].find('tfoot')
 
 def createDatabase():
-    for i in range(0, 23, 1):
-        pageSoup = getGameIndexPage(11, 6, 2018)
+    days = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
+    month = 11
+    teams = {}
+    for i in days:
+        if i == 1:
+            month += 1
+
+        pageSoup = getGameIndexPage(month, i, 2018)
         totalGames = pageSoup.find_all('a')
         totalGames = totalGames[37:len(totalGames) - 124]
-        teams = {}
         gamesToScrape = getDivisionOneGames(totalGames)
         for j in range(1, len(gamesToScrape), 3):
-            with urllib.request.urlopen(gamesToScrape[j]) as siteResponse:
-                singleGamePage = siteResponse.read()
-            gameSoup = BeautifulSoup(singleGamePage, 'html.parser')
+            urlRetrieved = False
+            while not urlRetrieved:
+                try:
+                    with urllib.request.urlopen(gamesToScrape[j]) as siteResponse:
+                        singleGamePage = siteResponse.read()
+                    gameSoup = BeautifulSoup(singleGamePage, 'html.parser')
+                    urlRetrieved = True
+                except urllib.error.URLError:
+                    time.sleep(300)
             # Find names of teams
             team_a = gamesToScrape[j - 1]
             team_b = gamesToScrape[j + 1]
@@ -105,9 +122,13 @@ def createDatabase():
                                   float(
                                       team_b_stats.find(attrs={'data-stat': 'pts'}).string) / calcPossessionsFromTable(
                                       team_b_stats, team_b))
+            teams[team_b].addGame(float(team_b_stats.find(attrs={'data-stat': 'pts'}).string),
+                                  calcPossessionsFromTable(team_b_stats, team_b), team_a,
+                                  float(
+                                      team_a_stats.find(attrs={'data-stat': 'pts'}).string) / calcPossessionsFromTable(
+                                      team_a_stats, team_a))
             time.sleep(5)
-
-        time.sleep(60)
+        time.sleep(30)
     return teams
 
 
@@ -125,12 +146,15 @@ if user_input == 'create':
 for team in teams:
     current_team = teams[team]
     for game in current_team.gamedata:
-        current_team.updateDefRating(game['opponent_points_per_pos'], teams[game['opponent_name']].PointsPerPos())
-
+        try:
+            current_team.updateDefRating(game['opponent_points_per_pos'], teams[game['opponent_name']].PointsPerPos())
+        except ZeroDivisionError:
+            print(team + ' caused a zero division error')
 
 for team in teams:
     current_team = teams[team]
     for game in current_team.gamedata:
         current_team.updateOffensiveRating(game['points_per_pos_scored'], teams[game['opponent_name']].defensiveRating())
 
-
+writeTeamData(teams)
+writeGameData(teams)
