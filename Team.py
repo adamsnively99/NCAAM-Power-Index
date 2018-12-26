@@ -14,7 +14,7 @@ class Team:
         self.points += float(points)
         self.games += 1
         self.gamedata.append({'points_per_pos_scored': float(points / poss), 'opponent_name': oppName,
-                              'opponent_points_per_pos': float(oppPointsPerPos)})
+                              'opponent_points_per_pos': float(oppPointsPerPos), 'points' : points, 'possessions' : poss})
 
     def PointsPerPos(self):
         return float(self.points) / float(self.possessions)

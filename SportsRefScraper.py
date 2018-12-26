@@ -55,6 +55,7 @@ def getGameIndexPage(month, day, year):
                 gamePage = siteResponse.read()
             page = BeautifulSoup(gamePage, 'html.parser')
             urlRetrieved = True
+            time.sleep(5)
         except urllib.error.URLError:
             time.sleep(300)
     return page
@@ -75,15 +76,70 @@ def writeGameData(teams):
             outfile.write(team + ',\n Opponent, PointsPerPos Scored, PointsPerPos Allowed, \n')
             for game in teams[team].gamedata:
                 outfile.write(str(game['opponent_name']) + ',' + str(game['points_per_pos_scored']) + ',' +
-                              str(game['opponent_points_per_pos']) + '\n')
+                              str(game['opponent_points_per_pos']) + ',' + str(game['points']) + ',' + str(game['possessions']) +'\n')
             outfile.write('\n')
 
 def getBoxScoreData(soup, team_name):
     team_table = soup.select('#div_box-score-basic-' + team_name)
     return team_table[0].find('tfoot')
 
+def updateAdjustedOffensiveRatings(team_dict):
+    for team in team_dict:
+        current_team = team_dict[team]
+        for game in current_team.gamedata:
+            current_team.updateOffensiveRating(game['points_per_pos_scored'],
+                                               team_dict[game['opponent_name']].defensiveRating())
+
+def updateDefensiveRatings(team_dict):
+    for team in team_dict:
+        current_team = team_dict[team]
+        for game in current_team.gamedata:
+            try:
+                current_team.updateDefRating(game['opponent_points_per_pos'], team_dict[game['opponent_name']].PointsPerPos())
+            except ZeroDivisionError:
+                print(team + ' caused a zero division error')
+
+def scrapeIndexPage(page, teams):
+    totalGames = page.find_all('a')
+    totalGames = totalGames[37:len(totalGames) - 124]
+    gamesToScrape = getDivisionOneGames(totalGames)
+    for j in range(1, len(gamesToScrape), 3):
+        urlRetrieved = False
+        while not urlRetrieved:
+            try:
+                with urllib.request.urlopen(gamesToScrape[j]) as siteResponse:
+                    singleGamePage = siteResponse.read()
+                gameSoup = BeautifulSoup(singleGamePage, 'html.parser')
+                urlRetrieved = True
+            except urllib.error.URLError:
+                time.sleep(300)
+        # Find names of teams
+        team_a = gamesToScrape[j - 1]
+        team_b = gamesToScrape[j + 1]
+
+        # Instantiate Teams, if not already instantiated
+        if team_a not in teams:
+            teams[team_a] = Team(team_a)
+        if team_b not in teams:
+            teams[team_b] = Team(team_b)
+
+        # Find box score data for each team from game
+        team_a_stats = getBoxScoreData(gameSoup, team_a)
+        team_b_stats = getBoxScoreData(gameSoup, team_b)
+        teams[team_a].addGame(float(team_a_stats.find(attrs={'data-stat': 'pts'}).string),
+                              calcPossessionsFromTable(team_a_stats, team_a), team_b,
+                              float(
+                                  team_b_stats.find(attrs={'data-stat': 'pts'}).string) / calcPossessionsFromTable(
+                                  team_b_stats, team_b))
+        teams[team_b].addGame(float(team_b_stats.find(attrs={'data-stat': 'pts'}).string),
+                              calcPossessionsFromTable(team_b_stats, team_b), team_a,
+                              float(
+                                  team_a_stats.find(attrs={'data-stat': 'pts'}).string) / calcPossessionsFromTable(
+                                  team_a_stats, team_a))
+        time.sleep(5)
+
 def createDatabase():
-    days = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
+    days = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]
     month = 11
     teams = {}
     for i in days:
@@ -91,48 +147,11 @@ def createDatabase():
             month += 1
 
         pageSoup = getGameIndexPage(month, i, 2018)
-        totalGames = pageSoup.find_all('a')
-        totalGames = totalGames[37:len(totalGames) - 124]
-        gamesToScrape = getDivisionOneGames(totalGames)
-        for j in range(1, len(gamesToScrape), 3):
-            urlRetrieved = False
-            while not urlRetrieved:
-                try:
-                    with urllib.request.urlopen(gamesToScrape[j]) as siteResponse:
-                        singleGamePage = siteResponse.read()
-                    gameSoup = BeautifulSoup(singleGamePage, 'html.parser')
-                    urlRetrieved = True
-                except urllib.error.URLError:
-                    time.sleep(300)
-            # Find names of teams
-            team_a = gamesToScrape[j - 1]
-            team_b = gamesToScrape[j + 1]
-
-            # Instantiate Teams, if not already instantiated
-            if team_a not in teams:
-                teams[team_a] = Team(team_a)
-            if team_b not in teams:
-                teams[team_b] = Team(team_b)
-
-            # Find box score data for each team from game
-            team_a_stats = getBoxScoreData(gameSoup, team_a)
-            team_b_stats = getBoxScoreData(gameSoup, team_b)
-            teams[team_a].addGame(float(team_a_stats.find(attrs={'data-stat': 'pts'}).string),
-                                  calcPossessionsFromTable(team_a_stats, team_a), team_b,
-                                  float(
-                                      team_b_stats.find(attrs={'data-stat': 'pts'}).string) / calcPossessionsFromTable(
-                                      team_b_stats, team_b))
-            teams[team_b].addGame(float(team_b_stats.find(attrs={'data-stat': 'pts'}).string),
-                                  calcPossessionsFromTable(team_b_stats, team_b), team_a,
-                                  float(
-                                      team_a_stats.find(attrs={'data-stat': 'pts'}).string) / calcPossessionsFromTable(
-                                      team_a_stats, team_a))
-            time.sleep(5)
-        time.sleep(30)
+        scrapeIndexPage(pageSoup, teams)
     return teams
 
 
-
+"""
 validInput = False
 while not validInput:
     print('Would you like to create a new database or update an existing one? Type \'create\' or \'update\':')
@@ -143,18 +162,7 @@ teams = {}
 if user_input == 'create':
     teams = createDatabase()
 
-for team in teams:
-    current_team = teams[team]
-    for game in current_team.gamedata:
-        try:
-            current_team.updateDefRating(game['opponent_points_per_pos'], teams[game['opponent_name']].PointsPerPos())
-        except ZeroDivisionError:
-            print(team + ' caused a zero division error')
-
-for team in teams:
-    current_team = teams[team]
-    for game in current_team.gamedata:
-        current_team.updateOffensiveRating(game['points_per_pos_scored'], teams[game['opponent_name']].defensiveRating())
-
+updateDefensiveRatings(teams)
+updateAdjustedOffensiveRatings(teams)
 writeTeamData(teams)
-writeGameData(teams)
+writeGameData(teams)"""
