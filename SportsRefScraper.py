@@ -5,7 +5,7 @@ import random
 from bs4 import BeautifulSoup
 import urllib
 from Team import Team
-
+import Settings
 # TODO: Allow user to differentiate between creating a database and updating an existing one
 # TODO: Iterate over mined data to calculate each teams' defensive rating
 # TODO: Iterate over mined data and use defensive ratings to calculate each teams adjusted points per possesion
@@ -55,9 +55,9 @@ def getGameIndexPage(month, day, year):
                 gamePage = siteResponse.read()
             page = BeautifulSoup(gamePage, 'html.parser')
             urlRetrieved = True
-            time.sleep(5)
+            time.sleep(Settings.GAME_INDEX_DELAY)
         except urllib.error.URLError:
-            time.sleep(300)
+            time.sleep(Settings.URLERROR_DELAY)
     return page
 
 def writeTeamData(teams):
@@ -112,7 +112,7 @@ def scrapeIndexPage(page, teams):
                 gameSoup = BeautifulSoup(singleGamePage, 'html.parser')
                 urlRetrieved = True
             except urllib.error.URLError:
-                time.sleep(300)
+                time.sleep(Settings.URLERROR_DELAY)
         # Find names of teams
         team_a = gamesToScrape[j - 1]
         team_b = gamesToScrape[j + 1]
@@ -136,18 +136,24 @@ def scrapeIndexPage(page, teams):
                               float(
                                   team_a_stats.find(attrs={'data-stat': 'pts'}).string) / calcPossessionsFromTable(
                                   team_a_stats, team_a))
-        time.sleep(5)
+        time.sleep(Settings.GAME_PAGE_DELAY)
 
 def createDatabase():
-    days = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]
-    month = 11
+    day = Settings.START_DAY
+    month = Settings.START_MONTH
+    year = Settings.START_YEAR
     teams = {}
-    for i in days:
-        if i == 1:
-            month += 1
-
-        pageSoup = getGameIndexPage(month, i, 2018)
+    while day <= Settings.END_DAY or month <= Settings.END_MONTH or year <= Settings.END_YEAR:
+        pageSoup = getGameIndexPage(month, day, 2018)
         scrapeIndexPage(pageSoup, teams)
+
+        if day == Settings.getMonthLength(month, year):
+            day = 1
+            if month == 12:
+                month = 1
+                year += 1
+        else:
+            day += 1
     return teams
 
 
@@ -158,11 +164,4 @@ while not validInput:
     user_input = input()
     validInput = user_input == 'create' or user_input == 'update'
 
-teams = {}
-if user_input == 'create':
-    teams = createDatabase()
-
-updateDefensiveRatings(teams)
-updateAdjustedOffensiveRatings(teams)
-writeTeamData(teams)
-writeGameData(teams)"""
+"""
