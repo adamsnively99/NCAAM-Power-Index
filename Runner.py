@@ -10,7 +10,7 @@ else:
     SportsRefScraper.scrapeIndexPage(updatePage, teams)
 
 
-Team.updateDefensiveRatings(teams)
-Team.updateAdjustedOffensiveRatings(teams)
-Team.writeTeamData(teams)
-Team.writeGameData(teams)
+SportsRefScraper.updateDefensiveRatings(teams)
+SportsRefScraper.updateAdjustedOffensiveRatings(teams)
+SportsRefScraper.writeTeamData(teams)
+SportsRefScraper.writeGameData(teams)

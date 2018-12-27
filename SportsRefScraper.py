@@ -1,15 +1,11 @@
 import csv
 import requests
 import time
-import random
 from bs4 import BeautifulSoup
 import urllib
 from Team import Team
 import Settings
-# TODO: Allow user to differentiate between creating a database and updating an existing one
-# TODO: Iterate over mined data to calculate each teams' defensive rating
-# TODO: Iterate over mined data and use defensive ratings to calculate each teams adjusted points per possesion
-# TODO: Remove dead code (a LOT was found to be unnecessary as I got to understand BeautifulSoup more)
+# TODO: Organize and document, like, all of this
 
 def extractGameLink(item):
     startIndex = item.find('"')
@@ -56,12 +52,14 @@ def getGameIndexPage(month, day, year):
             page = BeautifulSoup(gamePage, 'html.parser')
             urlRetrieved = True
             time.sleep(Settings.GAME_INDEX_DELAY)
+            print('sleep')
         except urllib.error.URLError:
             time.sleep(Settings.URLERROR_DELAY)
+            print('URL Request Failed')
     return page
 
 def writeTeamData(teams):
-    with open('BPI2018-19.csv', 'w') as outfile:
+    with open('BPI2018.csv', 'w') as outfile:
         for team in teams:
             outfile.write(str(teams[team].name) + ',')
             outfile.write(str(teams[team].games) + ',')
@@ -71,7 +69,7 @@ def writeTeamData(teams):
             outfile.write(str(teams[team].defensiveRating()) + ',' + '\n')
 
 def writeGameData(teams):
-    with open('gamefile.csv', 'w') as outfile:
+    with open('gamefil.csv', 'w') as outfile:
         for team in teams:
             outfile.write(team + ',\n Opponent, PointsPerPos Scored, PointsPerPos Allowed, \n')
             for game in teams[team].gamedata:
@@ -111,7 +109,10 @@ def scrapeIndexPage(page, teams):
                     singleGamePage = siteResponse.read()
                 gameSoup = BeautifulSoup(singleGamePage, 'html.parser')
                 urlRetrieved = True
+                time.sleep(Settings.GAME_INDEX_DELAY)
+                print('Sleep')
             except urllib.error.URLError:
+                print('URL Request failed')
                 time.sleep(Settings.URLERROR_DELAY)
         # Find names of teams
         team_a = gamesToScrape[j - 1]
@@ -136,14 +137,13 @@ def scrapeIndexPage(page, teams):
                               float(
                                   team_a_stats.find(attrs={'data-stat': 'pts'}).string) / calcPossessionsFromTable(
                                   team_a_stats, team_a))
-        time.sleep(Settings.GAME_PAGE_DELAY)
 
 def createDatabase():
     day = Settings.START_DAY
     month = Settings.START_MONTH
     year = Settings.START_YEAR
     teams = {}
-    while day <= Settings.END_DAY or month <= Settings.END_MONTH or year <= Settings.END_YEAR:
+    while day != Settings.END_DAY or month != Settings.END_MONTH or year != Settings.END_YEAR:
         pageSoup = getGameIndexPage(month, day, 2018)
         scrapeIndexPage(pageSoup, teams)
 
@@ -155,13 +155,3 @@ def createDatabase():
         else:
             day += 1
     return teams
-
-
-"""
-validInput = False
-while not validInput:
-    print('Would you like to create a new database or update an existing one? Type \'create\' or \'update\':')
-    user_input = input()
-    validInput = user_input == 'create' or user_input == 'update'
-
-"""
