@@ -5,7 +5,7 @@ from Team import Team
 
 def loadGameFile():
     teams = {}
-    with open(Settings.DATA_FOLDER + 'gamefil.csv', 'r') as gamefile:
+    with open(Settings.DATA_FOLDER + 'gamefile.csv', 'r') as gamefile:
         gamereader = csv.reader(gamefile)
         search_team = True
         for row in gamereader:

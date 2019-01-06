@@ -33,7 +33,13 @@ def calcPossessionsFromTable(table, team):
 
 def getDivisionOneGames(totalGames):
     games = []
+    print(totalGames)
+    print(len(totalGames))
     for i in range(0, len(totalGames), 3):
+        print(i)
+        print(totalGames[i])
+        print(totalGames[i + 1])
+        print(totalGames[i + 2])
         if str(totalGames[i]).find('href=') > 0 and str(totalGames[i + 2]).find('href=') > 0:
             games.append(extractTeamName(str(totalGames[i])))
             games.append(extractGameLink(str(totalGames[i + 1])))
@@ -59,7 +65,7 @@ def getGameIndexPage(month, day, year):
     return page
 
 def writeTeamData(teams):
-    with open('BPI2018.csv', 'w') as outfile:
+    with open('BPI2018-19.csv', 'w') as outfile:
         for team in teams:
             outfile.write(str(teams[team].name) + ',')
             outfile.write(str(teams[team].games) + ',')
@@ -69,7 +75,7 @@ def writeTeamData(teams):
             outfile.write(str(teams[team].defensiveRating()) + ',' + '\n')
 
 def writeGameData(teams):
-    with open('gamefil.csv', 'w') as outfile:
+    with open('gamefile.csv', 'w') as outfile:
         for team in teams:
             outfile.write(team + ',\n Opponent, PointsPerPos Scored, PointsPerPos Allowed, \n')
             for game in teams[team].gamedata:
@@ -124,19 +130,35 @@ def scrapeIndexPage(page, teams):
         if team_b not in teams:
             teams[team_b] = Team(team_b)
 
-        # Find box score data for each team from game
-        team_a_stats = getBoxScoreData(gameSoup, team_a)
-        team_b_stats = getBoxScoreData(gameSoup, team_b)
-        teams[team_a].addGame(float(team_a_stats.find(attrs={'data-stat': 'pts'}).string),
-                              calcPossessionsFromTable(team_a_stats, team_a), team_b,
-                              float(
-                                  team_b_stats.find(attrs={'data-stat': 'pts'}).string) / calcPossessionsFromTable(
-                                  team_b_stats, team_b))
-        teams[team_b].addGame(float(team_b_stats.find(attrs={'data-stat': 'pts'}).string),
-                              calcPossessionsFromTable(team_b_stats, team_b), team_a,
-                              float(
-                                  team_a_stats.find(attrs={'data-stat': 'pts'}).string) / calcPossessionsFromTable(
-                                  team_a_stats, team_a))
+        updateTeamsFromGameData(gameSoup, teams, team_a, team_b)
+
+    return teams
+
+def updateTeamsFromGameData(gameSoup, teams, team_a, team_b):
+    # Find box score data for each team from game
+    team_a_stats = getBoxScoreData(gameSoup, team_a)
+    team_b_stats = getBoxScoreData(gameSoup, team_b)
+    team_a_points = float(team_a_stats.find(attrs={'data-stat': 'pts'}).string)
+    team_b_points = float(team_b_stats.find(attrs={'data-stat': 'pts'}).string)
+
+    with open('resultTracker.csv', 'a+') as resultFile:
+        if(teams[team_a].overallRating() > teams[team_b].overallRating()):
+            resultFile.write(team_a + ', ' + team_a + ', '  + str(team_a_points) + ', ' + team_b + ', ' + str(team_b_points) + '\n')
+        else:
+            resultFile.write(team_b + ', ' + team_a + ', '  + str(team_a_points) + ', ' + team_b + ', ' + str(team_b_points) + '\n')
+
+    teams[team_a].addGame(float(team_a_stats.find(attrs={'data-stat': 'pts'}).string),
+                          calcPossessionsFromTable(team_a_stats, team_a), team_b,
+                          float(
+                              team_b_stats.find(attrs={'data-stat': 'pts'}).string) / calcPossessionsFromTable(
+                              team_b_stats, team_b))
+    teams[team_b].addGame(float(team_b_stats.find(attrs={'data-stat': 'pts'}).string),
+                          calcPossessionsFromTable(team_b_stats, team_b), team_a,
+                          float(
+                              team_a_stats.find(attrs={'data-stat': 'pts'}).string) / calcPossessionsFromTable(
+                              team_a_stats, team_a))
+
+
 
 def createDatabase():
     day = Settings.START_DAY

@@ -30,3 +30,6 @@ class Team:
 
     def OffensiveRating(self):
         return float(self.adjPPP) / float(self.games)
+
+    def overallRating(self):
+        return self.defensiveRating() + self.OffensiveRating()

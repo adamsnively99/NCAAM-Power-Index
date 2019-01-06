@@ -7,7 +7,7 @@ if Settings.CREATE_MODE:
 else:
     teams = DatabaseUpdater.loadGameFile()
     updatePage = SportsRefScraper.getGameIndexPage(Settings.START_MONTH, Settings.START_DAY, Settings.START_YEAR)
-    SportsRefScraper.scrapeIndexPage(updatePage, teams)
+    teams = SportsRefScraper.scrapeIndexPage(updatePage, teams)
 
 
 SportsRefScraper.updateDefensiveRatings(teams)
