@@ -38,8 +38,6 @@ def getDivisionOneGames(totalGames):
     for i in range(0, len(totalGames), 3):
         print(i)
         print(totalGames[i])
-        print(totalGames[i + 1])
-        print(totalGames[i + 2])
         if str(totalGames[i]).find('href=') > 0 and str(totalGames[i + 2]).find('href=') > 0:
             games.append(extractTeamName(str(totalGames[i])))
             games.append(extractGameLink(str(totalGames[i + 1])))
@@ -105,7 +103,7 @@ def updateDefensiveRatings(team_dict):
 
 def scrapeIndexPage(page, teams):
     totalGames = page.find_all('a')
-    totalGames = totalGames[37:len(totalGames) - 124]
+    totalGames = totalGames[37:len(totalGames) - 125]
     gamesToScrape = getDivisionOneGames(totalGames)
     for j in range(1, len(gamesToScrape), 3):
         urlRetrieved = False
@@ -140,12 +138,6 @@ def updateTeamsFromGameData(gameSoup, teams, team_a, team_b):
     team_b_stats = getBoxScoreData(gameSoup, team_b)
     team_a_points = float(team_a_stats.find(attrs={'data-stat': 'pts'}).string)
     team_b_points = float(team_b_stats.find(attrs={'data-stat': 'pts'}).string)
-
-    with open('resultTracker.csv', 'a+') as resultFile:
-        if(teams[team_a].overallRating() > teams[team_b].overallRating()):
-            resultFile.write(team_a + ', ' + team_a + ', '  + str(team_a_points) + ', ' + team_b + ', ' + str(team_b_points) + '\n')
-        else:
-            resultFile.write(team_b + ', ' + team_a + ', '  + str(team_a_points) + ', ' + team_b + ', ' + str(team_b_points) + '\n')
 
     teams[team_a].addGame(float(team_a_stats.find(attrs={'data-stat': 'pts'}).string),
                           calcPossessionsFromTable(team_a_stats, team_a), team_b,
